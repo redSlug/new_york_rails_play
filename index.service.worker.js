@@ -4,8 +4,9 @@
 // Incrementing CACHE_VERSION will kick off the install event and force
 // previously cached resources to be updated from the network.
 /** @type {string} */
-const CACHE_VERSION = '1795043199|1942102';
+const CACHE_VERSION = '1795043572|2968657';
 /** @type {string} */
+const ENGINE_VERSION = '4.7.2';  // patched
 const CACHE_PREFIX = 'New York Rails-sw-cache-';
 const CACHE_NAME = CACHE_PREFIX + CACHE_VERSION;
 /** @type {string} */
@@ -101,6 +102,21 @@ self.addEventListener(
 		const referrer = event.request.referrer || '';
 		const base = referrer.slice(0, referrer.lastIndexOf('/') + 1);
 		const local = url.startsWith(base) ? url.replace(base, '') : '';
+		if (local === 'index.wasm') {  // patched: the engine is cached until the Godot version changes
+			event.respondWith((async () => {
+				const engine = await caches.open('engine-' + ENGINE_VERSION);
+				const hit = await engine.match(event.request);
+				if (hit) {
+					return hit;
+				}
+				const response = await fetch(event.request);
+				if (response.ok) {
+					await engine.put(event.request, response.clone());
+				}
+				return response;
+			})());
+			return;
+		}
 		const isCacheable = FULL_CACHE.some((v) => v === local) || (base === referrer && base.endsWith(CACHED_FILES[0]));
 		if (isNavigate || isCacheable) {
 			event.respondWith((async () => {
@@ -109,7 +125,7 @@ self.addEventListener(
 				if (isNavigate) {
 					// Check if we have full cache during HTML page request.
 					/** @type {Response[]} */
-					const fullCache = await Promise.all(FULL_CACHE.map((name) => cache.match(name)));
+					const fullCache = await Promise.all(FULL_CACHE.filter((name) => name !== 'index.wasm').map((name) => cache.match(name)));
 					const missing = fullCache.some((v) => v === undefined);
 					if (missing) {
 						try {
