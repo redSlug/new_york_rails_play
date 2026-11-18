@@ -4,7 +4,7 @@
 // Incrementing CACHE_VERSION will kick off the install event and force
 // previously cached resources to be updated from the network.
 /** @type {string} */
-const CACHE_VERSION = '1794973020|2417839';
+const CACHE_VERSION = '1794973133|2599322';
 /** @type {string} */
 const CACHE_PREFIX = 'New York Rails-sw-cache-';
 const CACHE_NAME = CACHE_PREFIX + CACHE_VERSION;
@@ -21,10 +21,12 @@ const CACHEABLE_FILES = ["index.wasm","index.pck"];
 const FULL_CACHE = CACHED_FILES.concat(CACHEABLE_FILES);
 
 self.addEventListener('install', (event) => {
+	self.skipWaiting();  // patched: a new version takes over without waiting for old windows to close
 	event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(CACHED_FILES)));
 });
 
 self.addEventListener('activate', (event) => {
+	event.waitUntil(self.clients.claim());  // patched
 	event.waitUntil(caches.keys().then(
 		function (keys) {
 			// Remove old caches.
@@ -69,10 +71,10 @@ function ensureCrossOriginIsolationHeaders(response) {
 async function fetchAndCache(event, cache, isCacheable) {
 	// Use the preloaded response, if it's there
 	/** @type { Response } */
-	let response = await event.preloadResponse;
+	let response = null;  // patched: no navigation preload, it can come from the HTTP cache
 	if (response == null) {
 		// Or, go over network.
-		response = await self.fetch(event.request);
+		response = await self.fetch(event.request, {cache: 'no-cache'});  // patched: always revalidate
 	}
 
 	if (ENSURE_CROSSORIGIN_ISOLATION_HEADERS) {
@@ -121,6 +123,9 @@ self.addEventListener(
 						}
 					}
 				}
+				try {
+					return await fetchAndCache(event, cache, isCacheable);  // patched: network first
+				} catch (e) { /* offline: fall back to the cache below */ }
 				let cached = await cache.match(event.request);
 				if (cached != null) {
 					if (ENSURE_CROSSORIGIN_ISOLATION_HEADERS) {
