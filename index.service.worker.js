@@ -4,7 +4,7 @@
 // Incrementing CACHE_VERSION will kick off the install event and force
 // previously cached resources to be updated from the network.
 /** @type {string} */
-const CACHE_VERSION = '1795058096|3586255';
+const CACHE_VERSION = '1795058196|1826393';
 /** @type {string} */
 const ENGINE_VERSION = '4.7.2';  // patched
 const CACHE_PREFIX = 'New York Rails-sw-cache-';
